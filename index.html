@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Taustanauhat - Live Soitin</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #121212;
+            color: #e0e0e0;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        h1 {
+            color: #ffffff;
+            margin-bottom: 5px;
+            font-size: 1.8rem;
+            text-align: center;
+        }
+
+        .subtitle {
+            color: #888;
+            margin-bottom: 25px;
+            font-size: 0.95rem;
+            text-align: center;
+        }
+
+        .player-container {
+            width: 100%;
+            max-width: 500px;
+            background: #1e1e1e;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            box-sizing: border-box;
+        }
+
+        .master-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        button {
+            flex: 1;
+            padding: 14px;
+            font-size: 1rem;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        #playAllBtn {
+            background-color: #2e7d32;
+            color: white;
+        }
+        #playAllBtn:hover { background-color: #388e3c; }
+
+        #stopAllBtn {
+            background-color: #c62828;
+            color: white;
+        }
+        #stopAllBtn:hover { background-color: #d32f2f; }
+
+        .playlist {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .track-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #2a2a2a;
+            padding: 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s, border-left 0.2s;
+            border-left: 5px solid transparent;
+            user-select: none;
+        }
+
+        .track-item:hover {
+            background: #333;
+        }
+
+        .track-item.active {
+            background: #2c3e50;
+            border-left-color: #3498db;
+        }
+
+        .track-item.paused {
+            background: #4a382a;
+            border-left-color: #e67e22;
+        }
+
+        .track-info {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .track-title {
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #fff;
+        }
+
+        .track-status {
+            font-size: 0.85rem;
+            color: #aaa;
+        }
+
+        .track-icon {
+            font-size: 1.3rem;
+        }
+
+        .settings {
+            margin-top: 20px;
+            font-size: 0.9rem;
+            color: #aaa;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .settings input {
+            background: #2a2a2a;
+            border: 1px solid #444;
+            color: #fff;
+            padding: 5px;
+            width: 50px;
+            border-radius: 4px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+    <script>
+        // --- SALASANASUOJAUS ---
+        const oikeaSalasana = "laulut2026"; 
+        
+        const syotettySalasana = prompt("Anna sivuston salasana:");
+        if (syotettySalasana !== oikeaSalasana) {
+            document.body.innerHTML = "<h2 style='text-align:center; color:#ff5252; margin-top:100px;'>Väärä salasana. Päivitä sivu yrittääksesi uudelleen.</h2>";
+            throw new Error("Pääsy estetty");
+        }
+    </script>
+
+    <h1>Laulajan Taustanauhat</h1>
+    <div class="subtitle">Kosketa kappaletta soittaaksesi tai keskeyttääksesi sen</div>
+
+    <div class="player-container">
+        <div class="master-controls">
+            <button id="playAllBtn" onclick="startPlaylist()">Soita lista putkeen</button>
+            <button id="stopAllBtn" onclick="stopEverything()">Pysäytä kaikki</button>
+        </div>
+
+        <div class="playlist" id="playlist">
+            <!-- Kappaleet generoidaan dynaamisesti -->
+        </div>
+
+        <div class="settings">
+            <label for="pauseTime">Tauko kappaleiden välissä (sek):</label>
+            <input type="number" id="pauseTime" value="2" min="0" max="10">
+        </div>
+    </div>
+
+    <script>
+        // Kappalelista ilman "Jäitä" -kappaletta
+        const tracks = [
+            { title: "Terapiaa", file: "audio/terapiaa.mp3" },
+            { title: "Varjo", file: "audio/varjo.mp3" },
+            { title: "Hän säteilee", file: "audio/han_sateilee.mp3" },
+            { title: "Taikaa", file: "audio/taikaa.mp3" },
+            { title: "Kreivin aikaan", file: "audio/Kreivin_aikaan_Karaoke.mp3" }
+        ];
+
+        let currentAudio = null;
+        let currentIndex = -1;
+        let isPlayingList = false;
+        let timeoutId = null;
+
+        const playlistEl = document.getElementById('playlist');
+
+        function initPlaylist() {
+            playlistEl.innerHTML = '';
+            tracks.forEach((track, index) => {
+                const div = document.createElement('div');
+                div.className = 'track-item';
+                div.id = `track-${index}`;
+                div.innerHTML = `
+                    <div class="track-info">
+                        <span class="track-title">${track.title}</span>
+                        <span class="track-status" id="status-${index}">Valmiina</span>
+                    </div>
+                    <span class="track-icon" id="icon-${index}">▶</span>
+                `;
+                div.onclick = () => handleTrackClick(index);
+                playlistEl.appendChild(div);
+            });
+        }
+
+        function handleTrackClick(index) {
+            isPlayingList = false;
+            clearTimeout(timeoutId);
+
+            if (currentIndex === index && currentAudio) {
+                if (!currentAudio.paused) {
+                    currentAudio.pause();
+                    updateUI(index, 'paused');
+                } else {
+                    currentAudio.play();
+                    updateUI(index, 'playing');
+                }
+            } else {
+                stopEverything();
+                playTrack(index, false);
+            }
+        }
+
+        function playTrack(index, autoContinue = false) {
+            currentIndex = index;
+            currentAudio = new Audio(tracks[index].file);
+
+            updateUI(index, 'playing');
+
+            currentAudio.play().catch(error => {
+                alert(`Virhe tiedoston toistossa: ${tracks[index].file}\nTarkista, että äänitiedosto löytyy 'audio'-kansiosta.`);
+                stopEverything();
+            });
+
+            currentAudio.onended = () => {
+                updateUI(index, 'stopped');
+                if (autoContinue && isPlayingList) {
+                    const pauseSecs = parseFloat(document.getElementById('pauseTime').value) || 0;
+                    if (index + 1 < tracks.length) {
+                        document.getElementById(`status-${index + 1}`).innerText = `Tauko (${pauseSecs}s)...`;
+                        timeoutId = setTimeout(() => {
+                            playTrack(index + 1, true);
+                        }, pauseSecs * 1000);
+                    } else {
+                        isPlayingList = false;
+                        currentIndex = -1;
+                    }
+                } else {
+                    currentIndex = -1;
+                }
+            };
+        }
+
+        function startPlaylist() {
+            stopEverything();
+            isPlayingList = true;
+            playTrack(0, true);
+        }
+
+        function stopEverything() {
+            isPlayingList = false;
+            clearTimeout(timeoutId);
+            if (currentAudio) {
+                currentAudio.pause();
+                currentAudio = null;
+            }
+            if (currentIndex !== -1) {
+                updateUI(currentIndex, 'stopped');
+            }
+            currentIndex = -1;
+        }
+
+        function updateUI(activeIdx, state) {
+            tracks.forEach((_, i) => {
+                const item = document.getElementById(`track-${i}`);
+                const status = document.getElementById(`status-${i}`);
+                const icon = document.getElementById(`icon-${i}`);
+
+                item.className = 'track-item';
+                
+                if (i === activeIdx) {
+                    if (state === 'playing') {
+                        item.classList.add('active');
+                        status.innerText = 'Toistaa...';
+                        icon.innerText = '⏸';
+                    } else if (state === 'paused') {
+                        item.classList.add('paused');
+                        status.innerText = 'Pysäytetty (tauolla)';
+                        icon.innerText = '▶';
+                    } else {
+                        status.innerText = 'Valmis';
+                        icon.innerText = '▶';
+                    }
+                } else {
+                    status.innerText = 'Valmis';
+                    icon.innerText = '▶';
+                }
+            });
+        }
+
+        initPlaylist();
+    </script>
+</body>
+</html>
