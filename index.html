@@ -48,7 +48,6 @@
         }
 
         button {
-            flex: 1;
             padding: 14px;
             font-size: 1rem;
             font-weight: bold;
@@ -59,12 +58,14 @@
         }
 
         #playAllBtn {
+            flex: 1;
             background-color: #2e7d32;
             color: white;
         }
         #playAllBtn:hover { background-color: #388e3c; }
 
         #stopAllBtn {
+            flex: 1;
             background-color: #c62828;
             color: white;
         }
@@ -81,9 +82,8 @@
             align-items: center;
             justify-content: space-between;
             background: #2a2a2a;
-            padding: 15px;
+            padding: 12px 15px;
             border-radius: 8px;
-            cursor: pointer;
             transition: background 0.2s, border-left 0.2s;
             border-left: 5px solid transparent;
             user-select: none;
@@ -101,6 +101,15 @@
         .track-item.paused {
             background: #4a382a;
             border-left-color: #e67e22;
+        }
+
+        .track-click-area {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-grow: 1;
+            cursor: pointer;
+            margin-right: 10px;
         }
 
         .track-info {
@@ -122,6 +131,19 @@
 
         .track-icon {
             font-size: 1.3rem;
+            margin-right: 10px;
+        }
+
+        .lyrics-btn {
+            background-color: #1565c0;
+            color: white;
+            padding: 8px 12px;
+            font-size: 0.85rem;
+            border-radius: 6px;
+            font-weight: normal;
+        }
+        .lyrics-btn:hover {
+            background-color: #1e88e5;
         }
 
         .settings {
@@ -142,6 +164,83 @@
             border-radius: 4px;
             text-align: center;
         }
+
+        /* Modaali sanoille */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.85);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .modal-content {
+            background-color: #1e1e1e;
+            border-radius: 12px;
+            max-width: 500px;
+            width: 100%;
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.8);
+            box-sizing: border-box;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #333;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+
+        .modal-header h2 {
+            margin: 0;
+            color: #fff;
+            font-size: 1.4rem;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            color: #aaa;
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0;
+        }
+        .close-btn:hover { color: #fff; }
+
+        .modal-body {
+            overflow-y: auto;
+            white-space: pre-wrap;
+            font-size: 1.05rem;
+            line-height: 1.6;
+            color: #e0e0e0;
+            padding-right: 5px;
+        }
+
+        .modal-footer {
+            margin-top: 15px;
+            padding-top: 10px;
+            border-top: 1px solid #333;
+            text-align: right;
+        }
+
+        .close-modal-btn {
+            background-color: #424242;
+            color: white;
+            padding: 8px 16px;
+        }
+        .close-modal-btn:hover { background-color: #616161; }
     </style>
 </head>
 <body>
@@ -158,7 +257,7 @@
     </script>
 
     <h1>Laulajan Taustanauhat</h1>
-    <div class="subtitle">Kosketa kappaletta soittaaksesi tai keskeyttääksesi sen</div>
+    <div class="subtitle">Kosketa kappaletta soittaaksesi tai katso sanoja napan painikkeesta</div>
 
     <div class="player-container">
         <div class="master-controls">
@@ -176,14 +275,138 @@
         </div>
     </div>
 
+    <!-- Modal Sanat -ikkunalle -->
+    <div id="lyricsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">Kappaleen sanat</h2>
+                <button class="close-btn" onclick="closeLyrics()">&times;</button>
+            </div>
+            <div class="modal-body" id="modalBody">
+                <!-- Sanat tulevat tähän -->
+            </div>
+            <div class="modal-footer">
+                <button class="close-modal-btn" onclick="closeLyrics()">Sulje</button>
+            </div>
+        </div>
+    </div>
+
     <script>
-        // Kappalelista ilman "Jäitä" -kappaletta
+        // Kappalelista, tiedostot ja sanat
         const tracks = [
-            { title: "Terapiaa", file: "audio/terapiaa.mp3" },
-            { title: "Varjo", file: "audio/varjo.mp3" },
-            { title: "Hän säteilee", file: "audio/han_sateilee.mp3" },
-            { title: "Taikaa", file: "audio/taikaa.mp3" },
-            { title: "Kreivin aikaan", file: "audio/Kreivin_aikaan_Karaoke.mp3" }
+            { 
+                title: "Terapiaa", 
+                file: "audio/terapiaa.mp3",
+                lyrics: `Terapiaa kaikille 
+planeetta kiehuu pohjaa
+reseptiin on mennyt
+liikaa mausteita
+
+Teoriaa olen täynnä
+Kokemus saa silti veltoksi
+Ihmiseen on enää 
+vaikee uskoa
+
+Olen saanut tarpeekseni
+pakokauhusta
+En enää tyydytystä saa tässä roolissa
+Evoluutiossa nousen tuhat askelmaa
+ja tunnustan vihdoin totuuden
+kaipaan vapauteen
+
+Terapiaa
+Teoriaa mä vaihdan
+Kyseenalaistan kaiken
+Ihmiseen on enää vaikee uskoa` 
+            },
+            { 
+                title: "Varjo", 
+                file: "audio/varjo.mp3",
+                lyrics: `Systemaattisesti kaiken penkonut
+luvatta sun taskuillas
+Epäloogisuuden pois sulkenut
+skitsoillut ilman faktoja
+Tää operaatio
+Ei saisi paljastua
+kohteena on rakkaus
+Vakoiltu on aina historiassa
+valloitus tietää orjuutta
+
+Langennut olen sun varjoksi
+Kauneus korruptoi myös enkelin
+sul on valtaa hallitsetko sen
+vai vietkö valssiin intohimoiseen
+
+on kiusaus saada tietää mistä haaveilet
+kasaan johtolangat ja palaset paikoillen
+voisinko mä olla se` 
+            },
+            { 
+                title: "Hän säteilee", 
+                file: "audio/han_sateilee.mp3",
+                lyrics: `Ei hälytyskellot soi
+ei summerit huuda 
+ei iholla jälkiä nää
+physiikka on ok
+
+näkymätön aalto 
+pyyhkii yli maan
+Vain yksi väreilee väkijoukossa
+
+Sä loistat poissa olollas 
+säteleit kaipausta
+tunnen kuinka veri kiehuu
+
+Ei suojele temppeli
+ei lohduta näytelmä
+säteily ylittää sallitun määrän
+mä sulan ilman sua..
+
+Hän säteilee` 
+            },
+            { 
+                title: "Taikaa", 
+                file: "audio/taikaa.mp3",
+                lyrics: `Tuskin tiedät minkälaisen tunnekuohun aikaan saat
+Siiven isku perhosen voi pyöremyrskyn aloittaa
+luonnonvoimat tanssivat kun
+runoilet sun kauniita juttuja
+Kuiskaus ja tunnen kuinka mannerlaatat vavahtaa
+
+Jos tämä ei ole taikaa 
+herätit mut kuolleista
+Olen nähnyt ihmeen
+Lazarus on pihalla
+riisuit minut kahleista
+
+Ikivanhat kirjoitukset herää henkiin
+olen nähnyt enkelin
+Pelastit mut helvetistä
+Tuskin enää muistin mitä on olla onnellinen` 
+            },
+            { 
+                title: "Kreivin aikaan", 
+                file: "audio/Kreivin_aikaan_Karaoke.mp3",
+                lyrics: `Katson ja yritän ymmärtää
+Eleesi lähettää 
+salaisia viestejä
+Historia on jättäni jälkensä
+niin lämmin tuuli maalaa hymyn kasvoille
+
+Vain pintaa hipaisi
+yhteyden sain
+Repaleiseen sydämeen
+kreivin aikaan
+Kai vanhanaikaista on runoilla kauniisti
+lausua loitsuja 
+mutta ne sai sut kauniiksi
+
+Vihdoin joku on kartalla
+Katvealueella
+puhuu samaa kieltä
+niin kauan etsittiin säveltä
+linkkiä väliltä kaukaisen aseman` 
+            }
         ];
 
         let currentAudio = null;
@@ -200,13 +423,15 @@
                 div.className = 'track-item';
                 div.id = `track-${index}`;
                 div.innerHTML = `
-                    <div class="track-info">
-                        <span class="track-title">${track.title}</span>
-                        <span class="track-status" id="status-${index}">Valmiina</span>
+                    <div class="track-click-area" onclick="handleTrackClick(${index})">
+                        <div class="track-info">
+                            <span class="track-title">${track.title}</span>
+                            <span class="track-status" id="status-${index}">Valmiina</span>
+                        </div>
+                        <span class="track-icon" id="icon-${index}">▶</span>
                     </div>
-                    <span class="track-icon" id="icon-${index}">▶</span>
+                    <button class="lyrics-btn" onclick="openLyrics(${index})">Sanat</button>
                 `;
-                div.onclick = () => handleTrackClick(index);
                 playlistEl.appendChild(div);
             });
         }
@@ -304,6 +529,25 @@
                     icon.innerText = '▶';
                 }
             });
+        }
+
+        // Sanojen avaus ja sulku
+        function openLyrics(index) {
+            document.getElementById('modalTitle').innerText = tracks[index].title;
+            document.getElementById('modalBody').innerText = tracks[index].lyrics || "Sanoituksia ei ole saatavilla.";
+            document.getElementById('lyricsModal').style.display = 'flex';
+        }
+
+        function closeLyrics() {
+            document.getElementById('lyricsModal').style.display = 'none';
+        }
+
+        // Sulje modaali klikkaamalla sen ulkopuolelle
+        window.onclick = function(event) {
+            const modal = document.getElementById('lyricsModal');
+            if (event.target === modal) {
+                closeLyrics();
+            }
         }
 
         initPlaylist();
